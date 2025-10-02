@@ -19,26 +19,60 @@ app = Flask(__name__)
 config_name = os.getenv('FLASK_ENV', 'development')
 app.config.from_object(config[config_name])
 
-# Validate configuration
-config[config_name].validate()
+# Validate configuration only if not in testing mode
+if not app.config.get('TESTING', False):
+    try:
+        config[config_name].validate()
+    except ValueError as e:
+        print(f"Configuration error: {e}")
+        print("Please check your environment variables and .env file")
+        if config_name == 'production':
+            raise
+        # In development, continue with warnings
+        print("Running in development mode with missing configuration...")
 
 # Rate limiting
 limiter = Limiter(
-    app,
     key_func=get_remote_address,
     default_limits=["200 per day", "50 per hour"],
     storage_uri=app.config.get('RATELIMIT_STORAGE_URL', 'memory://')
 )
+limiter.init_app(app)
 
-# Supabase config
-supabase = create_client(app.config['SUPABASE_URL'], app.config['SUPABASE_KEY'])
+# Supabase config - only initialize if credentials are available
+supabase = None
+if app.config.get('SUPABASE_URL') and app.config.get('SUPABASE_KEY'):
+    try:
+        supabase = create_client(app.config['SUPABASE_URL'], app.config['SUPABASE_KEY'])
+    except Exception as e:
+        print(f"Failed to initialize Supabase client: {e}")
+else:
+    print("Warning: Supabase credentials not configured")
 
 def is_valid_url(url):
     """Validate URL format"""
+    if not url or not isinstance(url, str):
+        return False
+    
     try:
+        # First check if it already has a valid scheme
         result = urlparse(url)
-        return all([result.scheme, result.netloc])
-    except:
+        if result.scheme and result.netloc:
+            return result.scheme in ('http', 'https', 'ftp')
+        
+        # If no scheme, try adding https and validate again
+        if not result.scheme and '.' in url:
+            test_url = 'https://' + url
+            result = urlparse(test_url)
+            # Must have a valid domain with at least one dot
+            return (result.scheme == 'https' and 
+                   result.netloc and 
+                   '.' in result.netloc and 
+                   not result.netloc.startswith('.') and
+                   not result.netloc.endswith('.'))
+        
+        return False
+    except Exception:
         return False
 
 def generate_short_id(num_chars=None):
@@ -49,6 +83,10 @@ def generate_short_id(num_chars=None):
 
 def check_duplicate_url(original_url):
     """Check if URL already exists in database"""
+    if not supabase:
+        print("Supabase client not initialized")
+        return None
+        
     try:
         result = supabase.table('urls').select('*').eq('original_url', original_url).execute()
         return result.data[0] if result.data else None
@@ -58,6 +96,10 @@ def check_duplicate_url(original_url):
 
 def upload_qr_to_supabase(image, filename):
     """Upload QR code image to Supabase storage"""
+    if not supabase:
+        print("Supabase client not initialized")
+        return None
+        
     try:
         buffer = io.BytesIO()
         image.save(buffer, format='PNG')
@@ -91,26 +133,38 @@ def home():
             # Validate URL
             if not original_url:
                 error_message = "Please enter a URL"
+            elif len(original_url) > app.config.get('MAX_URL_LENGTH', 2048):
+                error_message = "URL is too long"
             elif not is_valid_url(original_url):
-                error_message = "Please enter a valid URL (include http:// or https://)"
+                error_message = "Please enter a valid URL (e.g., example.com or https://example.com)"
             else:
                 # Add protocol if missing
                 if not original_url.startswith(('http://', 'https://')):
                     original_url = 'https://' + original_url
                 
-                # Check for duplicate URL
-                existing_url = check_duplicate_url(original_url)
+                # Check for duplicate URL (only if Supabase is available)
+                existing_url = None
+                if supabase:
+                    existing_url = check_duplicate_url(original_url)
+                    
                 if existing_url:
                     short_url = request.host_url + existing_url['short_id']
                     qr_url = existing_url['qr_url']
                     success_message = "URL already shortened! Here's your existing link:"
+                elif not supabase:
+                    error_message = "Database connection not available. Please check configuration."
                 else:
                     # Generate unique short ID
                     attempts = 0
+                    short_id = None
                     while attempts < 10:
                         short_id = generate_short_id()
-                        existing = supabase.table('urls').select('id').eq('short_id', short_id).execute()
-                        if not existing.data:
+                        try:
+                            existing = supabase.table('urls').select('id').eq('short_id', short_id).execute()
+                            if not existing.data:
+                                break
+                        except Exception as e:
+                            print(f"Error checking short ID uniqueness: {e}")
                             break
                         attempts += 1
                     
@@ -133,17 +187,21 @@ def home():
                         
                         if qr_url:
                             # Save to Supabase DB
-                            result = supabase.table('urls').insert({
-                                'original_url': original_url,
-                                'short_id': short_id,
-                                'qr_url': qr_url,
-                                'click_count': 0,
-                                'created_at': datetime.utcnow().isoformat()
-                            }).execute()
-                            
-                            if result.data:
-                                success_message = "URL shortened successfully!"
-                            else:
+                            try:
+                                result = supabase.table('urls').insert({
+                                    'original_url': original_url,
+                                    'short_id': short_id,
+                                    'qr_url': qr_url,
+                                    'click_count': 0,
+                                    'created_at': datetime.utcnow().isoformat()
+                                }).execute()
+                                
+                                if result.data:
+                                    success_message = "URL shortened successfully!"
+                                else:
+                                    error_message = "Failed to save URL. Please try again."
+                            except Exception as e:
+                                print(f"Error saving URL to database: {e}")
                                 error_message = "Failed to save URL. Please try again."
                         else:
                             error_message = "Failed to generate QR code. Please try again."
@@ -161,8 +219,11 @@ def home():
 @app.route('/<short_id>')
 def redirect_to_url(short_id):
     try:
-        # Validate short_id format
-        if not re.match(r'^[a-zA-Z0-9]{6}$', short_id):
+        # Validate short_id format (allow flexible length)
+        if not re.match(r'^[a-zA-Z0-9]+$', short_id) or len(short_id) < 4 or len(short_id) > 12:
+            return render_template('404.html'), 404
+            
+        if not supabase:
             return render_template('404.html'), 404
             
         result = supabase.table('urls').select('*').eq('short_id', short_id).execute()
@@ -195,6 +256,9 @@ def redirect_to_url(short_id):
 def analytics(short_id):
     """Show analytics for a shortened URL"""
     try:
+        if not supabase:
+            return render_template('404.html'), 404
+            
         result = supabase.table('urls').select('*').eq('short_id', short_id).execute()
         data = result.data
         
@@ -212,6 +276,9 @@ def analytics(short_id):
 def api_analytics(short_id):
     """API endpoint for analytics data"""
     try:
+        if not supabase:
+            return jsonify({'error': 'Database not available'}), 503
+            
         result = supabase.table('urls').select('*').eq('short_id', short_id).execute()
         data = result.data
         
