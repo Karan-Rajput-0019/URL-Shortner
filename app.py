@@ -95,10 +95,10 @@ def check_duplicate_url(original_url):
         return None
 
 def upload_qr_to_supabase(image, filename):
-    """Upload QR code image to Supabase storage"""
+    """Upload QR code image to Supabase storage, fallback to base64 data URL"""
     if not supabase:
         print("Supabase client not initialized")
-        return None
+        return generate_qr_data_url(image)
         
     try:
         buffer = io.BytesIO()
@@ -115,8 +115,19 @@ def upload_qr_to_supabase(image, filename):
         public_url = f"{app.config['SUPABASE_URL']}/storage/v1/object/public/qr-codes/{filename}"
         return public_url
     except Exception as e:
-        print(f"Error uploading QR code: {e}")
-        return None
+        print(f"Error uploading QR code to storage: {e}")
+        print("Falling back to base64 data URL...")
+        # Fallback to base64 data URL
+        return generate_qr_data_url(image)
+
+def generate_qr_data_url(image):
+    """Generate a base64 data URL for QR code image"""
+    import base64
+    buffer = io.BytesIO()
+    image.save(buffer, format='PNG')
+    buffer.seek(0)
+    image_base64 = base64.b64encode(buffer.read()).decode('utf-8')
+    return f"data:image/png;base64,{image_base64}"
 
 @app.route('/', methods=['GET', 'POST'])
 @limiter.limit("10 per minute")
