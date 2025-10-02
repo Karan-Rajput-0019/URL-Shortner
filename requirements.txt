@@ -1,0 +1,7 @@
+flask
+qrcode[pil]
+supabase
+gunicorn
+python-dotenv
+flask-limiter
+pytest

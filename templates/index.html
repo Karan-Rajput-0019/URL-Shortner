@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>URL Shortener - Fast & Secure</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <h1>🔗 URL Shortener</h1>
+        <p class="subtitle">Transform long URLs into short, shareable links</p>
+        
+        <!-- Error/Success Messages -->
+        {% if error_message %}
+        <div class="message error-message">
+            <span class="message-icon">⚠️</span>
+            {{ error_message }}
+        </div>
+        {% endif %}
+        
+        {% if success_message %}
+        <div class="message success-message">
+            <span class="message-icon">✅</span>
+            {{ success_message }}
+        </div>
+        {% endif %}
+
+        <form method="POST" id="urlForm">
+            <div class="input-group">
+                <input type="url" name="url" id="urlInput" placeholder="Enter your long URL (e.g., https://example.com)" required>
+                <button type="submit" id="submitBtn">
+                    <span class="btn-text">Shorten</span>
+                    <span class="btn-loading" style="display: none;">
+                        <span class="spinner"></span>
+                        Processing...
+                    </span>
+                </button>
+            </div>
+        </form>
+
+        {% if short_url %}
+        <div class="result fade-in">
+            <div class="result-header">
+                <h3>🎉 Your shortened URL is ready!</h3>
+            </div>
+            
+            <div class="url-display">
+                <a href="{{ short_url }}" target="_blank" class="short-link">{{ short_url }}</a>
+            </div>
+
+            <div class="copy-section">
+                <input type="text" id="shortUrl" value="{{ short_url }}" readonly>
+                <button onclick="copyToClipboard()" class="copy-btn">
+                    <span id="copyText">📋 Copy</span>
+                </button>
+            </div>
+            
+            <div class="action-buttons">
+                <a href="{{ short_url }}" target="_blank" class="action-btn visit-btn">🌐 Visit URL</a>
+                <a href="/analytics/{{ short_url.split('/')[-1] }}" class="action-btn analytics-btn">📊 View Analytics</a>
+            </div>
+
+            {% if qr_url %}
+            <div class="qr-section">
+                <h4>📱 QR Code</h4>
+                <div class="qr-container">
+                    <img src="{{ qr_url }}" alt="QR Code" class="qr-code">
+                    <p class="qr-description">Scan with your phone to share instantly</p>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+        {% endif %}
+        
+        <div class="features">
+            <div class="feature">
+                <span class="feature-icon">🚀</span>
+                <span>Lightning Fast</span>
+            </div>
+            <div class="feature">
+                <span class="feature-icon">🔒</span>
+                <span>Secure & Private</span>
+            </div>
+            <div class="feature">
+                <span class="feature-icon">📊</span>
+                <span>Click Analytics</span>
+            </div>
+            <div class="feature">
+                <span class="feature-icon">📱</span>
+                <span>QR Code Included</span>
+            </div>
+        </div>
+    </div>
+
+    <script>
+    // Enhanced copy to clipboard with better UX
+    function copyToClipboard() {
+        const input = document.getElementById("shortUrl");
+        const copyBtn = document.getElementById("copyText");
+        
+        input.select();
+        input.setSelectionRange(0, 99999);
+        
+        try {
+            document.execCommand("copy");
+            copyBtn.innerHTML = "✅ Copied!";
+            copyBtn.parentElement.classList.add("copied");
+            
+            setTimeout(() => {
+                copyBtn.innerHTML = "📋 Copy";
+                copyBtn.parentElement.classList.remove("copied");
+            }, 2000);
+        } catch (err) {
+            console.error('Failed to copy: ', err);
+            alert("Failed to copy. Please select and copy manually.");
+        }
+    }
+
+    // Form submission with loading state
+    document.getElementById('urlForm').addEventListener('submit', function(e) {
+        const submitBtn = document.getElementById('submitBtn');
+        const btnText = submitBtn.querySelector('.btn-text');
+        const btnLoading = submitBtn.querySelector('.btn-loading');
+        
+        btnText.style.display = 'none';
+        btnLoading.style.display = 'inline-flex';
+        submitBtn.disabled = true;
+    });
+
+    // Auto-focus on URL input
+    document.getElementById('urlInput').focus();
+    
+    // Add protocol if missing on blur
+    document.getElementById('urlInput').addEventListener('blur', function(e) {
+        let url = e.target.value.trim();
+        if (url && !url.match(/^https?:\/\//)) {
+            e.target.value = 'https://' + url;
+        }
+    });
+    </script>
+</body>
+</html>

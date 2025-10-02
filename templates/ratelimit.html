@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rate Limit Exceeded</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <style>
+        .error-container {
+            text-align: center;
+            padding: 40px;
+        }
+        .error-code {
+            font-size: 4em;
+            font-weight: bold;
+            color: #ff9f43;
+            margin: 0;
+        }
+        .error-message {
+            font-size: 1.5em;
+            margin: 20px 0;
+        }
+        .home-button {
+            display: inline-block;
+            padding: 12px 24px;
+            background-color: #00c9a7;
+            color: white;
+            text-decoration: none;
+            border-radius: 6px;
+            margin-top: 20px;
+            transition: background-color 0.3s;
+        }
+        .home-button:hover {
+            background-color: #00b39f;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="error-container">
+            <h1 class="error-code">429</h1>
+            <p class="error-message">⏰ Slow down there, speedy!</p>
+            <p>You've made too many requests. Please wait a moment before trying again.</p>
+            <p><small>Rate limit: 10 requests per minute, 50 per hour, 200 per day</small></p>
+            <a href="/" class="home-button">🏠 Go Home</a>
+        </div>
+    </div>
+</body>
+</html>
+

@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>URL Analytics - URL Shortener</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <style>
+        .analytics-container {
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .stat-card {
+            background-color: rgba(255,255,255,0.1);
+            padding: 20px;
+            border-radius: 8px;
+            margin: 15px 0;
+            text-align: center;
+        }
+        .stat-number {
+            font-size: 2.5em;
+            font-weight: bold;
+            color: #00c9a7;
+            margin: 0;
+        }
+        .stat-label {
+            font-size: 1.1em;
+            margin-top: 5px;
+            opacity: 0.9;
+        }
+        .url-info {
+            background-color: rgba(255,255,255,0.1);
+            padding: 20px;
+            border-radius: 8px;
+            margin: 20px 0;
+            word-break: break-all;
+        }
+        .qr-section {
+            text-align: center;
+            margin: 20px 0;
+        }
+        .qr-section img {
+            max-width: 200px;
+            border-radius: 8px;
+            background-color: white;
+            padding: 10px;
+        }
+        .home-button {
+            display: inline-block;
+            padding: 12px 24px;
+            background-color: #00c9a7;
+            color: white;
+            text-decoration: none;
+            border-radius: 6px;
+            margin: 10px 5px;
+            transition: background-color 0.3s;
+        }
+        .home-button:hover {
+            background-color: #00b39f;
+        }
+    </style>
+</head>
+<body>
+    <div class="analytics-container">
+        <h1>📊 URL Analytics</h1>
+        
+        <div class="stat-card">
+            <h2 class="stat-number">{{ url_data.click_count }}</h2>
+            <p class="stat-label">Total Clicks</p>
+        </div>
+        
+        <div class="url-info">
+            <h3>🔗 Short URL</h3>
+            <p><strong>{{ request.host_url }}{{ url_data.short_id }}</strong></p>
+            
+            <h3>🌐 Original URL</h3>
+            <p>{{ url_data.original_url }}</p>
+            
+            <h3>📅 Created</h3>
+            <p>{{ url_data.created_at[:19] | replace('T', ' ') }} UTC</p>
+            
+            {% if url_data.last_accessed %}
+            <h3>🕒 Last Accessed</h3>
+            <p>{{ url_data.last_accessed[:19] | replace('T', ' ') }} UTC</p>
+            {% endif %}
+        </div>
+        
+        {% if url_data.qr_url %}
+        <div class="qr-section">
+            <h3>📱 QR Code</h3>
+            <img src="{{ url_data.qr_url }}" alt="QR Code">
+        </div>
+        {% endif %}
+        
+        <div style="text-align: center; margin-top: 30px;">
+            <a href="/" class="home-button">🏠 Create New URL</a>
+            <a href="{{ request.host_url }}{{ url_data.short_id }}" class="home-button" target="_blank">🔗 Visit URL</a>
+        </div>
+    </div>
+</body>
+</html>
+
