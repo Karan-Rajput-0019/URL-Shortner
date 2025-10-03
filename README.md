@@ -110,46 +110,7 @@ The application supports multiple configuration environments:
 ### API Endpoints
 - `GET /api/analytics/<short_id>` - Get analytics data as JSON
 
-## 🚀 Deployment
 
-### Heroku Deployment
-
-1. **Install Heroku CLI** and login to your account
-
-2. **Create a Heroku app**
-   ```bash
-   heroku create your-app-name
-   ```
-
-3. **Set environment variables**
-   ```bash
-   heroku config:set SUPABASE_URL=your_supabase_url
-   heroku config:set SUPABASE_KEY=your_supabase_key
-   heroku config:set FLASK_SECRET_KEY=your_secret_key
-   heroku config:set FLASK_ENV=production
-   ```
-
-4. **Deploy**
-   ```bash
-   git add .
-   git commit -m "Deploy to Heroku"
-   git push heroku main
-   ```
-
-### Docker Deployment
-
-```dockerfile
-FROM python:3.11-slim
-
-WORKDIR /app
-COPY requirements.txt .
-RUN pip install -r requirements.txt
-
-COPY . .
-
-EXPOSE 5000
-CMD ["gunicorn", "wsgi:app"]
-```
 
 ## 🛡️ Security Features
 
@@ -182,9 +143,7 @@ Default rate limits (configurable):
 4. Push to the branch (`git push origin feature/amazing-feature`)
 5. Open a Pull Request
 
-## 📝 License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
 ## 🆘 Support
 
